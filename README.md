@@ -4,9 +4,9 @@ A soft-fork of gitea with support for running as an I2P service. Just the mod an
 How it works:
 =============
 
-Very simply, this uses Github CI to continuously build an I2P-only version of gitea based on the latest release of gitea at all times.
-We can do this without requiring a patch to the gitea source code.
-This is because gitea encapsulates it's "Listening" and "Dialing" into functions, which can easily be substituted for alternative versions.
+This uses GitHub CI to continuously build an I2P-only version of Gitea based on the latest release of Gitea.
+We can do this without requiring a patch to the Gitea source code.
+This is because Gitea encapsulates its "Listening" and "Dialing" into functions, which can easily be substituted for alternative versions.
 For instance, the network listener is set up by a function, `graceful.GetListener() (net.Listener, error)` in the file `modules/graceful/server.go`. 
 The default implementation of the `GetListener() (net.Listener, error)` function, `DefaultGetListener() (net.Listener, error)` is defined in the `modules/graceful/net_unix.go` for Unix-like systems and `modules/graceful/net_windows.go` for Windows-like systems.
 A developer who wishes to "Mod" gitea to listen on another kind of connection do so by creating a new file which implements a `GetListener() (net.Listener, error)` function using an alternate listener implementation.
