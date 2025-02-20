@@ -21,6 +21,7 @@ func ResolveUnixAddr(network, address string) (net.Addr, error) {
 	}
 }
 
+/*
 func GetListenerUnix(network string, addr net.Addr) (net.Listener, error) {
 	switch addr.(type) {
 	case *net.UnixAddr:
@@ -30,3 +31,4 @@ func GetListenerUnix(network string, addr net.Addr) (net.Listener, error) {
 	}
 
 }
+*/
