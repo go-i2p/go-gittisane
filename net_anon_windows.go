@@ -22,6 +22,6 @@ func ResolveUnixAddr(network, address string) (net.Addr, error) {
 	}
 }
 
-func GetListenerUnix(network string, addr net.Addr) (net.Listener, error) {
+func GetListenerUnixWrapper(network string, addr net.Addr) (net.Listener, error) {
 	return net.Listen(network, addr.String())
 }

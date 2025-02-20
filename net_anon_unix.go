@@ -21,14 +21,12 @@ func ResolveUnixAddr(network, address string) (net.Addr, error) {
 	}
 }
 
-/*
-func GetListenerUnix(network string, addr net.Addr) (net.Listener, error) {
+func GetListenerUnixWrapper(network string, addr net.Addr) (net.Listener, error) {
 	switch addr.(type) {
 	case *net.UnixAddr:
-		return net.ListenUnix(network, addr.(*net.UnixAddr))
+		return GetListenerUnix(network, addr.(*net.UnixAddr))
 	default:
 		return nil, fmt.Errorf("unknown address type %T", addr)
 	}
 
 }
-*/

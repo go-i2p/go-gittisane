@@ -24,7 +24,7 @@ func I2PGetListener(network, address string) (net.Listener, error) {
 		if err != nil {
 			return nil, err
 		}
-		return GetListenerUnix(network, unixAddr)
+		return GetListenerUnixWrapper(network, unixAddr)
 	default:
 		return nil, net.UnknownNetworkError(network)
 	}
