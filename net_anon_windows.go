@@ -10,5 +10,5 @@ package graceful
 import "net"
 
 func GetListenerUnix(network string, addr net.Addr) (net.Listener, error) {
-	return nil, nil
+	return net.Listen(network, addr.String())
 }
