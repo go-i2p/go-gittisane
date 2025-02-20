@@ -76,6 +76,7 @@ jobs:
         run: |
           make clean
           cp -v ../net_anon.go modules/graceful/net_anon.go
+          cp -v ../net_anon_unix.go modules/graceful/net_anon_unix.go
           cp -v ../net_anon_windows.go modules/graceful/net_anon_windows.go
           go mod tidy
           make build
