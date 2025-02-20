@@ -1,0 +1,116 @@
+name: Gitea Build Pipeline
+on:
+  schedule:
+    - cron: '0 0 * * *'  # Runs daily at midnight UTC
+  workflow_dispatch:      # Allow manual triggers
+
+permissions:
+  contents: write        # Required for creating releases
+
+jobs:
+  check-release:
+    runs-on: ubuntu-latest
+    outputs:
+      new_tag: ${{ steps.get_latest_tag.outputs.tag }}
+      should_build: ${{ steps.check_existing.outputs.should_build }}
+    steps:
+      - name: Get Latest Gitea Tag
+        id: get_latest_tag
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const response = await github.rest.repos.getLatestRelease({
+              owner: 'go-gitea',
+              repo: 'gitea'
+            });
+            core.setOutput('tag', response.data.tag_name);
+
+      - name: Check Existing Release
+        id: check_existing
+        uses: actions/github-script@v7
+        with:
+          script: |
+            try {
+              const tag = '${{ steps.get_latest_tag.outputs.tag }}';
+              const release = await github.rest.repos.getReleaseByTag({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                tag: tag
+              });
+              core.setOutput('should_build', 'false');
+            } catch (error) {
+              core.setOutput('should_build', 'true');
+            }
+
+  build:
+    needs: check-release
+    if: needs.check-release.outputs.should_build == 'true'
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 120  # 2-hour timeout
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+          cache: true
+
+      - name: Checkout Gitea Source
+        uses: actions/checkout@v4
+        with:
+          repository: go-gitea/gitea
+          ref: ${{ needs.check-release.outputs.new_tag }}
+          path: gitea-source
+
+      - name: Build Gitea
+        working-directory: gitea-source
+        run: |
+          make clean
+          make build
+        env:
+          TAGS: bindata sqlite sqlite_unlock_notify
+          
+      - name: Prepare Artifact
+        shell: bash
+        run: |
+          cd gitea-source
+          ARTIFACT_NAME="gitea-${{ runner.os }}"
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            mv gitea.exe "${ARTIFACT_NAME}.exe"
+          else
+            mv gitea "${ARTIFACT_NAME}"
+          fi
+
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: gitea-${{ runner.os }}
+          path: |
+            gitea-source/gitea-${{ runner.os }}*
+          retention-days: 1
+
+  release:
+    needs: [check-release, build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download All Artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.check-release.outputs.new_tag }}
+          name: "Gitea ${{ needs.check-release.outputs.new_tag }}"
+          body: "Automated build of Gitea ${{ needs.check-release.outputs.new_tag }}"
+          files: |
+            gitea-Linux/*
+            gitea-Windows/*
+            gitea-macOS/*
+          draft: false
+          prerelease: false
