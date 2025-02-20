@@ -12,6 +12,15 @@ import (
 	"net"
 )
 
+func ResolveUnixAddr(network, address string) (net.Addr, error) {
+	switch network {
+	case "unix", "unixpacket":
+		return net.ResolveUnixAddr(network, address)
+	default:
+		return nil, fmt.Errorf("unknown network type %s", network)
+	}
+}
+
 func GetListenerUnix(network string, addr net.Addr) (net.Listener, error) {
 	switch addr.(type) {
 	case *net.UnixAddr:
