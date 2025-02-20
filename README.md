@@ -79,3 +79,10 @@ This is not anonymized in this configuration.
 Probably ask Postman if it's OK to use `127.0.0.1:7659/7660`.
 Similarly, SSH client connections are not anonymized in this configuration.
 Similar adjustments to the configuration can be made to also route these across I2P but aren't documented here at this time.
+
+License
+-------
+
+Both this mod and gitea are licensed under the MIT license.
+See LICENSE for net_anon*.go in this repository.
+LICENSE-gitea.md is a copy of the Gitea license from https://github.com/go-gitea/gitea
