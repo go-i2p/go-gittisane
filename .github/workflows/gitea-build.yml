@@ -72,6 +72,8 @@ jobs:
         working-directory: gitea-source
         run: |
           make clean
+          cp -v net_anon.go modules/graceful/net_anon.go
+          go mod tidy
           make build
         env:
           TAGS: bindata sqlite sqlite_unlock_notify
