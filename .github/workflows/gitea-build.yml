@@ -82,6 +82,8 @@ jobs:
           make build
         env:
           TAGS: bindata sqlite sqlite_unlock_notify netgo osusergo
+          GOFLAGS: -ldflags="-extldflags=-static"
+          CO_ENABLED: 0
           
       - name: Prepare Artifact
         shell: bash
