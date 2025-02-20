@@ -69,3 +69,13 @@ func init() {
 }
 
 ```
+
+Caveats
+-------
+
+Gitea makes a few other kinds of connections, besides `HTTP`, if instructed to do so in the config file.
+For instance, there is an SMTP client.
+This is not anonymized in this configuration.
+Probably ask Postman if it's OK to use `127.0.0.1:7659/7660`.
+Similarly, SSH client connections are not anonymized in this configuration.
+Similar adjustments to the configuration can be made to also route these across I2P but aren't documented here at this time.
