@@ -20,7 +20,7 @@ func I2PGetListener(network, address string) (net.Listener, error) {
 		return garlic.Listen()
 	case "unix", "unixpacket":
 		// I2P isn't really a replacement for the stuff you use Unix sockets for and it's also not an anonymity risk, so treat them normally
-		unixAddr, err := net.ResolveUnixAddr(network, address)
+		unixAddr, err := ResolveUnixAddr(network, address)
 		if err != nil {
 			return nil, err
 		}

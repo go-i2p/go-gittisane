@@ -33,7 +33,7 @@ import (
 // First, make sure that the onramp.Garlic API is set up:
 var garlic, i2perr = onramp.NewGarlic("gitea-anon", "127.0.0.1:7656", onramp.OPT_DEFAULTS)
 
-// This implements the GetListener function for I2P. Note the exemption for Unix sockets.
+// This implements the GetListener function for I2P. Note the exemption for Unix sockets, which is implemented in net_anon_unix.go and net_anon_windows.go
 func I2PGetListener(network, address string) (net.Listener, error) {
 	// Add a deferral to say that we've tried to grab a listener
 	defer GetManager().InformCleanup()
