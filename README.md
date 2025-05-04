@@ -1,88 +1,118 @@
-# go-gittisane
-A soft-fork of gitea with support for running as an I2P service. Just the mod and the CI files.
+# Go-Gittisane
 
-How it works:
-=============
+A soft-fork of Gitea with built-in support for running as an I2P (Invisible Internet Project) service. This project provides network implementation files and CI configuration to build Gitea with I2P support.
 
-This uses GitHub CI to continuously build an I2P-only version of Gitea based on the latest release of Gitea.
-We can do this without requiring a patch to the Gitea source code.
-This is because Gitea encapsulates its "Listening" and "Dialing" into functions, which can easily be substituted for alternative versions.
-For instance, the network listener is set up by a function, `graceful.GetListener() (net.Listener, error)` in the file `modules/graceful/server.go`. 
-The default implementation of the `GetListener() (net.Listener, error)` function, `DefaultGetListener() (net.Listener, error)` is defined in the `modules/graceful/net_unix.go` for Unix-like systems and `modules/graceful/net_windows.go` for Windows-like systems.
-A developer who wishes to "Mod" gitea to listen on another kind of connection do so by creating a new file which implements a `GetListener() (net.Listener, error)` function using an alternate listener implementation.
+## What is Go-Gittisane?
 
-On the client side, the same thing is possible because Go allows you to substitute the underlying transports used for the default HTTP Client.
-So, in the absence of overriding settings, we can configure it to use SAMv3 to build HTTP connections by default using the same keys as the hidden service.
-Effectively this is like a "Bidirectional HTTP" tunnel in Java's Hidden Service Manager.
+Go-Gittisane enables you to run the Gitea git server with anonymity features through the I2P network. All HTTP traffic - both incoming requests to your Gitea instance and outgoing requests from it - are routed through I2P, providing privacy and censorship resistance.
 
-Finally, if you need to include additional libraries, run `go mod tidy` in the root of the gitea checkout to include them.
+## How it Works
 
-Here is a complete working example mod:
+### Technical Explanation
 
-```Go
-// copy this file to modules/graceful/net_anon.go before building gitea
+Go-Gittisane leverages Gitea's modular network architecture to replace the standard TCP/IP networking with I2P connectivity:
+
+1. **Network Module Substitution**: Gitea encapsulates its network operations in the `graceful` package. By providing alternative implementations of key functions like `GetListener()`, we can redirect all network traffic through I2P.
+
+2. **I2P Integration**: The core modification is in `net_anon.go`, which uses the `github.com/go-i2p/onramp` library to establish I2P connectivity. This file:
+   - Creates an I2P "Garlic" router connection
+   - Implements a custom `GetListener` function that returns I2P listeners 
+   - Configures Go's HTTP client to use I2P for outbound connections
+
+3. **Platform-Specific Handling**: Unix socket connections (used for local IPC) are handled normally since they don't present anonymity risks. These implementations are in `net_anon_unix.go` and `net_anon_windows.go`.
+
+### Automated Builds
+
+This repository contains a GitHub Actions workflow that:
+1. Checks for new Gitea releases daily
+2. Downloads the Gitea source code for the latest release
+3. Applies our I2P network modifications
+4. Builds binaries for Linux, Windows, and macOS
+5. Creates a new release with these modified binaries
+
+## Deployment Options
+
+### Using Pre-built Binaries
+
+1. Download the latest release for your platform from the [Releases page](https://github.com/go-i2p/go-gittisane/releases)
+2. Ensure you have I2P router running with SAM enabled on port 7656
+3. Run the gittisane binary(it has identical options as gitea)
+
+## Implementation Details
+
+The core networking modification looks like this:
+
+```go
+// This file gets copied to modules/graceful/net_anon.go during build
 package graceful
 
 import (
-	"net"
-	"net/http"
+    "net"
+    "net/http"
 
-	"github.com/go-i2p/onramp"
+    "github.com/go-i2p/onramp"
 )
 
-// First, make sure that the onramp.Garlic API is set up:
+// Set up I2P connectivity
 var garlic, i2perr = onramp.NewGarlic("gitea-anon", "127.0.0.1:7656", onramp.OPT_DEFAULTS)
 
-// This implements the GetListener function for I2P. Note the exemption for Unix sockets, which is implemented in net_anon_unix.go and net_anon_windows.go
+// Custom implementation of GetListener for I2P
 func I2PGetListener(network, address string) (net.Listener, error) {
-	// Add a deferral to say that we've tried to grab a listener
-	defer GetManager().InformCleanup()
-	switch network {
-	case "tcp", "tcp4", "tcp6", "i2p", "i2pt":
-		return garlic.Listen()
-	case "unix", "unixpacket":
-		// I2P isn't really a replacement for the stuff you use Unix sockets for and it's also not an anonymity risk, so treat them normally
-		unixAddr, err := net.ResolveUnixAddr(network, address)
-		if err != nil {
-			return nil, err
-		}
-		return GetListenerUnix(network, unixAddr)
-	default:
-		return nil, net.UnknownNetworkError(network)
-	}
+    defer GetManager().InformCleanup()
+    switch network {
+    case "tcp", "tcp4", "tcp6", "i2p", "i2pt":
+        return garlic.Listen()
+    case "unix", "unixpacket":
+        // Unix sockets handled normally
+        unixAddr, err := ResolveUnixAddr(network, address)
+        if err != nil {
+            return nil, err
+        }
+        return GetListenerUnixWrapper(network, unixAddr)
+    default:
+        return nil, net.UnknownNetworkError(network)
+    }
 }
 
-// We use `init() to ensure that the I2P Listeners and Dialers are correctly placed at runtime`
+// Initialize everything at runtime
 func init() {
-	if i2perr != nil {
-		panic(i2perr)
-	}
-	GetListener = I2PGetListener
-	httpClient := &http.Client{
-		Transport: &http.Transport{
-			Dial: garlic.Dial,
-		},
-	}
+    if i2perr != nil {
+        panic(i2perr)
+    }
+    GetListener = I2PGetListener
+    httpClient := &http.Client{
+        Transport: &http.Transport{
+            Dial: garlic.Dial,
+        },
+    }
 
-	http.DefaultClient = httpClient
-	http.DefaultTransport = httpClient.Transport
+    http.DefaultClient = httpClient
+    http.DefaultTransport = httpClient.Transport
 }
-
 ```
 
-Caveats
--------
+## Caveats and Limitations
 
-Gitea makes a few other kinds of connections, besides `HTTP`, if instructed to do so in the config file.
-For instance, there is an SMTP client.
-This is not anonymized in this configuration.
-Probably ask Postman if it's OK to use `127.0.0.1:7659/7660`.
-Similarly, SSH client connections are not anonymized in this configuration.
-Similar adjustments to the configuration can be made to also route these across I2P but aren't documented here at this time.
+While HTTP traffic is anonymized, other types of connections might not be:
 
-License
--------
+1. **SMTP**: Email sending from Gitea is not automatically routed through I2P
+2. **SSH**: Git operations using SSH are not automatically anonymized
+3. **External Services**: Webhooks and other external connections will use I2P, but services must support I2P addresses
 
-Both this mod and gitea are licensed under the MIT license.
-See LICENSE for net_anon*.go in this repository.
-LICENSE-gitea.md is a copy of the Gitea license from https://github.com/go-gitea/gitea
+These limitations can be addressed with additional configuration but are beyond the scope of the default implementation.
+
+## Requirements
+
+- Go 1.21 or later (for building from source)
+- Running I2P router with SAM API enabled on port 7656
+- Standard Gitea requirements (database, etc.)
+
+## License
+
+Both this modification and Gitea are licensed under the MIT license.
+- See [LICENSE](LICENSE) for the license covering the files in this repository
+- See [LICENSE-gitea.md](LICENSE-gitea.md) for the Gitea license
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
