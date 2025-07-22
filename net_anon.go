@@ -5,6 +5,7 @@ import (
 	"net"
 	"net/http"
 
+	selectcache "github.com/go-i2p/go-select-cache"
 	"github.com/go-i2p/onramp"
 )
 
@@ -17,7 +18,15 @@ func I2PGetListener(network, address string) (net.Listener, error) {
 	defer GetManager().InformCleanup()
 	switch network {
 	case "tcp", "tcp4", "tcp6", "i2p", "i2pt":
-		return garlic.Listen()
+		config := selectcache.DefaultCacheConfig()
+		config.MaxMemoryMB = 512
+		config.MaxEntries = 10000
+		listener, err := garlic.Listen(network, address)
+		if err != nil {
+			return nil, err
+		}
+		// Wrap with caching listener
+		return selectcache.NewCachingListener(listener, config), nil
 	case "unix", "unixpacket":
 		// I2P isn't really a replacement for the stuff you use Unix sockets for and it's also not an anonymity risk, so treat them normally
 		unixAddr, err := ResolveUnixAddr(network, address)
