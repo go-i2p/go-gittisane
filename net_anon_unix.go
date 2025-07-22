@@ -28,5 +28,4 @@ func GetListenerUnixWrapper(network string, addr net.Addr) (net.Listener, error)
 	default:
 		return nil, fmt.Errorf("unknown address type %T", addr)
 	}
-
 }
